@@ -83,7 +83,7 @@ class TestRunner:
         for launcher in self._symbolMap.launchers:
             if self.args['verbose']:
                 print("Starting launcher on "+launcher[0]+":"+str(launcher[1]))
-            subprocess.Popen(["ssh",
+            subproc = subprocess.Popen(["ssh",
 
                               # avoid ssh waiting for confirmation of unknown host key
                               # but keep keys learned this way in a separate file
@@ -92,6 +92,12 @@ class TestRunner:
                               "-o","StrictHostKeyChecking=no",
 
                               "-x","-n",launcher[0],launcherCmd+str(launcher[1])])
+
+            # avoid the ssh process surviving the end of this program
+            # (see e.g. https://stackoverflow.com/a/11366424/288875 why we need
+            # a default value for the lambda function)
+            import atexit
+            atexit.register(lambda proc = subproc: proc.kill())
 
     def stopLaunchers(self):
         for launcher in self._symbolMap.launchers:
