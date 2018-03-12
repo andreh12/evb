@@ -179,6 +179,14 @@ class xdaqLauncher:
         # this must be called before starting the XDAQ process in question
         self.logLevel = level
 
+    def pinProcess(self, pid, core):
+        # pins the process pid to the given core
+
+        mask = hex(1 << core)
+        status = subprocess.call(["/bin/taskset", "-p", mask, str(pid)])
+
+        return status
+
 
 if __name__ == "__main__":
 
@@ -216,6 +224,7 @@ if __name__ == "__main__":
                      "stopLauncher",
                      "getFiles",
                      "setLogLevel",
+                     "pinProcess",
                      ]:
         server.register_function(getattr(launcher, command))
 
