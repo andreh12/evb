@@ -110,6 +110,26 @@ class Configuration():
 
         return configString
 
+    def getRUBUs(self):
+        # finds RUBUs, i.e. RUs which share the same host and soapport
+        # with a BU. The return value is a list of objects in the same
+        # format as in self.applications
+
+        # maps from (soap host, soap port) to the dict describing a RU
+        hostPortToRU = {}
+
+        for application in self.applications['RU']:
+            key = (application['soapHostname'], application['soapPort'])
+            hostPortToRU[key] = application
+
+        # now find BUs which share the same context (soap host and port)
+        result = []
+        for application in self.applications['BU']:
+            key = (application['soapHostname'], application['soapPort'])
+            if key in hostPortToRU:
+                result.append(application)
+
+        return result
 
 class ConfigFromFile(Configuration):
 
