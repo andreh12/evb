@@ -18,32 +18,66 @@ import time, logging, re, os, sys, threading
 import optimutils
 
 from RestartableRunner import RestartableRunner
+from RestartableRunnerRunScans import RestartableRunnerRunScans
+from RestartableRunnerRunBenchmarks import RestartableRunnerRunBenchmarks
 
 #----------------------------------------------------------------------
 # main
 #----------------------------------------------------------------------
 if __name__ == "__main__":
 
-    # object to get the configuration from
-    testRunner = RunBenchmarks()
     parser = ArgumentParser()
 
-    # add options to run the event builder
-    testRunner.addOptions(parser)
-
-    options = parser.parse_args()
-
-    testRunner.args = vars(options)
-    testRunner.createSymbolMap()
-
+    subparsers = parser.add_subparsers(help ='subcommands to get the configuration. Run any of these with -h afterwards to get subcommands specific options help',
+                                       dest = 'subcommand')
 
     #----------
-    # check/override some event builder options
-    options.nbMeasurements = 0
+    # getting the configuration using RunBenchmarks
+    #----------
+    runBenchmarksParser = subparsers.add_parser("runbenchmarks")
 
-    if len(options.sizes) != 1:
-        print >> sys.stderr,"must specify excatly one superfragment size to run with (in the future we may support optimizing for a mix of fragment sizes)"
-        sys.exit(1)
+    runBenchmarks = RunBenchmarks()
+
+    # add options to run the event builder
+    runBenchmarks.addOptions(runBenchmarksParser)
+
+    #----------
+    # getting the configuration using RunScans
+    #----------
+    runScansParser = subparsers.add_parser("runscans")
+
+    runScans = RunScans()
+
+    # add options to run the event builder
+    runScans.addOptions(runScansParser)
+
+    #----------
+    # parse the command line options 
+    #----------
+    options = parser.parse_args()
+
+    # check which subcommand was specified
+
+
+    if options.subcommand == 'runbenchmarks':
+        testRunner = runBenchmarks
+        testRunner.args = vars(options)
+        testRunner.createSymbolMap()
+
+        #----------
+        # check/override some event builder options
+        options.nbMeasurements = 0
+
+        if len(options.sizes) != 1:
+            print >> sys.stderr,"must specify excatly one superfragment size to run with (in the future we may support optimizing for a mix of fragment sizes)"
+            sys.exit(1)
+    elif options.subcommand == 'runscans':
+        testRunner = runScans
+        testRunner.args = vars(options)
+
+    else:
+        raise Exception("internal error, uncaught case")
+
 
     #----------
 
@@ -69,7 +103,12 @@ if __name__ == "__main__":
     #----------
     # the object to launch the event builder processes
     # and restart them on failure
-    evbRunner = RestartableRunner(testRunner)
+    if options.subcommand == 'runbenchmarks':
+        evbRunner = RestartableRunnerRunBenchmarks(testRunner)
+    elif options.subcommand == 'runscans':
+        evbRunner = RestartableRunnerRunScans(testRunner)
+    else:
+        raise Exception("internal error, uncaught case")
     #----------
 
     #----------
