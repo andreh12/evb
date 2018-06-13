@@ -44,33 +44,32 @@ class RestartableRunner:
 
         self.testCase = None
 
+    def runSpecific(self, stdout, config, testName):
+        """benchmark-specific implementation of how to run the test"""
+        raise Exception("must override this method")
 
+    def getConfigAndStartLaunchers(self):
+        """benchmark-specific implementation of how to retrieve
+        the (first) configuration and start launchers if necessary 
+        """
+        raise Exception("must override this method")        
 
     def run(self, stdout):
 
         logging.info("RestartableRunner.run() called")
 
-        self.testRunner.startLaunchers()
-        time.sleep(1)
+        configData = self.getConfigAndStartLaunchers()
 
-        configData = self.testRunner.getAllConfigurations()[0]
         config = configData['config']
         testName = configData['name']
 
         try:
             while not self.stopFlag:
                 try:
-                    self.testCase = TestCase(config, stdout, afterStartupCallback=self.afterStartupCallback)
-                    self.testCase.prepare(testName)
 
-                    fragSize = self.testRunner.getFedSizes()
-                    assert len(fragSize) == 1
-
-                    fragSize = fragSize[0]
-                    fragSizeRMS = int(fragSize * self.testRunner.args['rms'])
-
-                    # this should only terminate when the user terminates the optimization
-                    self.testCase.runScan(fragSize, fragSizeRMS, self.testRunner.args)
+                    # call benchmark specific implementation
+                    # to start the tests
+                    self.runSpecific(stdout, config, testName)
 
                     # evb was stopped
                     self.evbStarted.clear()
