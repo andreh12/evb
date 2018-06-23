@@ -215,6 +215,36 @@ class xdaqLauncher:
 
         return status
 
+    def __parseProcPidStat(self, data):
+        """Given a line read from /proc/<pid>/stat, returns
+        a list of entries. Note that this does NOT read
+        any such file (such e.g. the reading of multiple
+        files can be done at once and the parsing later such
+        that the status information read for multple PIDs
+        is closer in time)
+
+        :param data the first line of the corresponding /proc/<pid>/stat file
+        to be parsed
+        :return a list of the elements found or None if an unexpected
+        format was encountered
+        """
+
+        #              pid     executable
+        # we assume that there is no parenthesis in the executable name
+        mo = re.match("(\d+) \((.+)\) ", data)
+
+        if not mo:
+            # there is an unexpected format, silently ignore it for the moment
+            return None
+
+        rest = data[mo.end():].lstrip()
+
+        # rest contains values from position 3 on (as described
+        # in the above man page), i.e. the index in parts
+        # is the index in the man page minus 3.
+        return [ mo.group(1), mo.group(2)] + re.split('\s+', rest)
+
+
     def getLastCpuOfProcesses(self, processes):
         """Given a list of thread (process) ids, returns the
         last cpu used according to /proc/<pid>/stat .
@@ -234,24 +264,13 @@ class xdaqLauncher:
             # for the format of /proc/<pid>/stat
 
             with open("/proc/%s/stat" % pid) as fin:
-                data = fin.readline()
+                parts = self.__parseProcPidStat(fin.readline())
 
-                #              pid     executable
-                # we assume that there is no parenthesis in the executable name
-                mo = re.match("(\d+) \((.+)\) ", data)
+                if parts is None:
+                     continue
 
-                if not mo:
-                    # there is an unexpected format, silently ignore it for the moment
-                    continue
-
-                rest = data[mo.end():].lstrip()
-
-                # rest contains values from position 3 on (as described
-                # in the above man page), i.e. the index in parts
-                # is the index in the man page minus 3.
-                parts = re.split('\s+', rest)
-
-                proc = int(parts[39 - 3])
+                # numbers in the above proc man page start at one so we subtract one
+                proc = int(parts[39 - 1])
 
                 # convert pid to a string, see https://stackoverflow.com/questions/6996585
                 result[str(pid)] = proc
