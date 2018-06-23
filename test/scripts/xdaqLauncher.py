@@ -9,6 +9,7 @@ import socket
 import subprocess
 import sys
 import threading
+import time
 import SocketServer
 
 from SimpleXMLRPCServer import SimpleXMLRPCServer
@@ -277,6 +278,43 @@ class xdaqLauncher:
 
         return result
 
+    def getProcessesTicks(self, processes):
+        """Given a list of thread (process) ids, reads the
+        number of 'clock ticks' (jiffies) for each process from /proc/<pid>/stat.
+        This can be used to determine the average CPU time spent of each
+        workload over a period of multiple seconds
+        """
+
+        # first read /proc/<pid>/stat for the requested processes
+        # and then assign a common timestamp after reading
+        # then parse the contents and extract the utime (user time) and
+        # stime (system time) counters
+
+        lines = []
+        for pid in processes:
+            # for /proc/<pid>/stat the corresponding fields
+            # seem all to be the same for all threads
+            # we use /proc/<pid>/task/<pid>/stat instead
+            # (for the last processor on the other hand,
+            # /proc/<pid>/stat works for the threads)
+            with open("/proc/%s/task/%s/stat" % (pid, pid)) as fin:
+                lines.append(fin.readline())
+
+        now = time.time()
+
+        # parse the lines read
+        # result maps from pid (string due to xmlrpc) to (utime, stime)
+        result = {}
+
+        for pid, line in zip(processes, lines):
+            parts = self.__parseProcPidStat(line)
+
+            utime = int(parts[13])
+            stime = int(parts[14])
+
+            result[str(pid)] = (utime, stime)
+
+        return (now, result)
 
 
 if __name__ == "__main__":
@@ -326,6 +364,7 @@ if __name__ == "__main__":
                      "setLogLevel",
                      "pinProcess",
                      "getLastCpuOfProcesses",
+                     "getProcessesTicks",
                      ]:
         server.register_function(getattr(launcher, command))
 
