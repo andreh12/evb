@@ -268,4 +268,44 @@ class WorkLoopData:
         return result
 
 
+    #----------------------------------------
+
+    def getCpuTicks(self):
+        """
+        :return: a nested dict:
+
+        { "timestamp": ...,
+          "cputicks": {
+              a dict of canonical work loop name to a tuple (utime, stime)
+              where utime and stime are the number of ticks the corresponding
+              work loop was active (user and system time) as read for /proc/<pid>/stat
+              }
+        }
+        """
+
+        result = {}
+
+        if self.workLoopToPid is None:
+            # not yet set
+            return result
+
+        # collect the list of all PIDs to look at
+        pids = list(self.workLoopToPid.values())
+
+        # pinnings will be a map of pid -> last CPU used
+        # (note that the pids will be strings, not ints)
+        timestamp, tickData = self.rpcclient.getProcessesTicks(pids)
+
+        # map back from pids to work loop names
+        for wln, pid in self.workLoopToPid.items():
+            result[wln] = tickData[str(pid)]
+
+        return dict(timestamp = timestamp, cputicks = result)
+
+
+
+def WorkLoopDataGetCpuTicksWrapper(workLoopData):
+    """Wrapper around WorkLoopData.getCpuTicks() for multiprocessing"""
+    return workLoopData.getCpuTicks()
+
 #----------------------------------------------------------------------
