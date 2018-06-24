@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from WorkLoopData import WorkLoopData
+from WorkLoopData import WorkLoopData, WorkLoopDataGetCpuTicksWrapper
 
 class WorkLoopList:
     # keeps information about all the relevant work loops to tune
@@ -134,5 +134,65 @@ class WorkLoopList:
                 thisResult[key] = workLoopData.getCurrentThreadPinnings()
 
             result[appType] = thisResult
+
+        return result
+
+    #----------------------------------------
+
+    def getCpuTicks(self, mpPool = None):
+        """
+        Method to collect CPU usage information across the entire setup for
+        the monitored XDAQ workloops
+
+        :param mpPool: if specified, this must be a multiprocessing pool which is
+            used to collect the information from the different applications in parallel.
+            Note that since the xmlrpc objects contained in this class are not
+            pickleable, this will not work with a 'real' multiprocessing pool
+            but only a (thread based) multiprocessing.dummy instance.
+
+        :return: a nested dict:
+
+        { "BU": {
+           "workloop1": { (host, port): { "timestamp": ... "user_ticks": ... , "system_ticks" ... }
+                          ...
+                       }
+            }
+        }"""
+
+        result = {}
+
+        # concatenate the workLoopDatas into a flattened list so we could use
+        # it with multiprocessing
+        import operator
+        wlds = reduce(operator.__add__, self.workLoopDatas.values())
+
+        if not mpPool is None:
+            # use a multithreading pool to collect the information
+            # build a list
+            results = mpPool.map(WorkLoopDataGetCpuTicksWrapper, wlds)
+        else:
+            # execute serially
+            results = [ workLoopData.getCpuTicks() for workLoopData in wlds ]
+
+        # put results into a dict
+        for workLoopData, cpuData in zip(wlds, results):
+
+            # key of thisAppTypeResult is work loop name
+            thisAppTypeResult = result.setdefault(workLoopData.appType, {})
+
+            timestamp = cpuData['timestamp']
+            cpuTicks = cpuData['cputicks']
+
+            key = (workLoopData.soapHost, workLoopData.soapPort)
+
+            # group ticks by work loop name
+            for workLoopName, data in cpuTicks.items():
+                thisAppTypeResult.setdefault(workLoopName, {})[key] = dict(
+                    timestamp = timestamp,
+                    user_ticks = data[0],
+                    system_ticks = data[1],
+                )
+
+            # end of loop over workLoopDatas
 
         return result
