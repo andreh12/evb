@@ -123,13 +123,13 @@ if __name__ == '__main__':
     # shortHostType is e.g. 'BU' etc. (but not 'RUBU')
     for shortHostType in symbolMap.getShortHostTypes():
 
-        tmp = []
         for hostType in symbolMap.getHostsOfType(shortHostType):
 
-            # exclude EVM for the moment
-            # TODO: need to support this in class WorkLoopList
+            # this is the EVM, change the short host type for this host only
             if hostType == 'RU0':
-                continue
+                thisShortHostType = 'EVM'
+            else:
+                thisShortHostType = shortHostType
 
             # check which hosts of the SymbolMap are actually reachable
             hostInfo = symbolMap.getHostInfo(hostType)
@@ -138,9 +138,7 @@ if __name__ == '__main__':
                 # application not used in this test
                 continue
 
-            tmp.append(hostInfo)
-
-        applications[shortHostType] = tmp
+            applications.setdefault(thisShortHostType, []).append(hostInfo)
 
 
 
